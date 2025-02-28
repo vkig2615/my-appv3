@@ -1,4 +1,4 @@
-name: Deploy React App (Rolling Update: v3 → v4)
+name: Deploy React App 
 
 on:
   push:
