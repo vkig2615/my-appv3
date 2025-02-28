@@ -44,13 +44,8 @@ jobs:
         script: |
           IMAGE_TAG=${{ github.run_id }}  # Set the tag to GitHub Run ID
 
-          echo "Checking if the Docker network exists..."
-          if ! docker network ls | grep -q "my-appv3-network"; then
-            echo "Creating Docker network: my-appv3-network"
-            docker network create --driver bridge my-appv3-network
-          else
-            echo "Docker network my-appv3-network already exists."
-          fi
+          echo "Ensuring Docker network exists..."
+          docker network create --driver bridge my-appv3-network || true
           
           echo "Pulling the latest image from DockerHub..."
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
