@@ -44,21 +44,31 @@ jobs:
         script: |
           IMAGE_TAG=${{ github.run_id }}  # Set the tag to GitHub Run ID
 
-          # Create a Docker network if it doesn't exist
-          docker network create --driver bridge my-appv3-network || true
+          echo "Checking if the Docker network exists..."
+          if ! docker network ls | grep -q "my-appv3-network"; then
+            echo "Creating Docker network: my-appv3-network"
+            docker network create --driver bridge my-appv3-network
+          else
+            echo "Docker network my-appv3-network already exists."
+          fi
           
-          # Pull the latest image from DockerHub
+          echo "Pulling the latest image from DockerHub..."
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
           
-          # Stop and remove the existing container if running
+          echo "Stopping and removing any existing container..."
           docker stop my-appv3 || true
           docker rm my-appv3 || true
 
-          # Deploy using Docker Swarm
+          echo "Checking if the service exists..."
           if ! docker service ls | grep -q "my-appv3"; then
             echo "Creating my-appv3 service on port 8080"
-            docker service create --name my-appv3 --network my-appv3-network --replicas 2 --publish 8080:80 ${{ secrets.DOCKER_USERNAME }}/my-appv3:$IMAGE_TAG
+            docker service create \
+              --name my-appv3 \
+              --network my-appv3-network \
+              --replicas 2 \
+              --publish 8080:80 \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
           else
-            echo "my-appv3 service already exists, updating it"
+            echo "Updating existing my-appv3 service"
             docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG my-appv3
           fi
