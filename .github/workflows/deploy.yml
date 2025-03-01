@@ -25,10 +25,10 @@ jobs:
       - name: Build and Push Docker image
         uses: docker/build-push-action@v2
         with:
-          platform: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64  # Corrected 'platform' to 'platforms'
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}  # Corrected tag format
           load: false
           no-cache: false
           pull: false
@@ -37,9 +37,9 @@ jobs:
       - name: SSH to Server and Deploy
         uses: appleboy/ssh-action@v0.1.3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             # 4.1 Create Docker Swarm network if it doesn't exist
             docker network create --driver overlay terminal-network || true
