@@ -1,58 +1,66 @@
-name: Deploy v3 application
+name: CI/CD Pipeline for React v3
 
 on:
   push:
     branches:
-      - main
+      - main  # Trigger on push to the main branch
 
 jobs:
-  build:
+  build-and-deploy-v3:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the code from the repository
-      - name: Checkout code
-        uses: actions/checkout@v2
+    # Step 1: Checkout the repository code
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      # 2. Login to Docker Hub
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+    # Step 2: List the repository files for debugging purposes
+    - name: List repository files for debugging
+      run: ls -R
 
-      # 3. Build and Push Docker Image to Docker Hub
-      - name: Build and Push Docker image
-        uses: docker/build-push-action@v2
-        with:
-          platforms: linux/amd64,linux/arm64  # Corrected 'platform' to 'platforms'
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}  # Corrected tag format
-          load: false
-          no-cache: false
-          pull: false
+    # Step 3: Set up Docker Buildx (for multi-platform builds)
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      # 4. SSH to Server and Deploy
-      - name: SSH to Server and Deploy
-        uses: appleboy/ssh-action@v0.1.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # 4.1 Create Docker Swarm network if it doesn't exist
-            docker network create --driver overlay terminal-network || true
+    # Step 4: Log in to DockerHub with credentials stored in GitHub Secrets
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-            # 4.2 Pull the Docker image from Docker Hub
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+    # Step 5: Build and Push the Docker Image for `frontend-react`
+    - name: Build and push Docker image for frontend-react (v3)
+      run: |
+        IMAGE_TAG=${{ github.run_id }}  # Set the tag to GitHub Run ID
+        # Build the Docker image for the frontend-react app
+        docker build -t vk2615/frontend-react:$IMAGE_TAG -f ./frontend-react/Dockerfile ./frontend-react
+        # Push the built image to DockerHub
+        docker push vk2615/frontend-react:$IMAGE_TAG
 
-            # 4.3 Create a Docker service in Swarm mode (2 replicas)
-            docker service create \
-              --name terminal_frontend \
-              --replicas 2 \
-              -p 8080:80 \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
-
-            # 4.4 Clean up unused Docker objects (volumes, containers, images)
-            docker system prune -f --volumes
+    # Step 6: SSH into the server and deploy to Docker Swarm (frontend-react only)
+    - name: SSH into server and deploy to Docker Swarm (frontend-react only)
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          IMAGE_TAG=${{ github.run_id }}  # Set the tag to GitHub Run ID
+          
+          # Create the overlay network "terminal-network" if it doesn't exist
+          docker network create --driver overlay terminal-network || echo "Network terminal-network already exists."
+          
+          # Pull the latest image for frontend-react from DockerHub
+          docker pull vk2615/frontend-react:$IMAGE_TAG
+          
+          # Check if the frontend-react service exists, create it if not
+          if ! docker service ls --filter name=frontend-react | grep -q "frontend-react"; then
+            echo "Creating frontend-react service on port 8080 with overlay network terminal-network"
+            # Create the frontend-react service and attach it to the terminal-network overlay network
+            docker service create --name frontend-react --replicas 2 --publish 8080:80 --network terminal-network vk2615/frontend-react:$IMAGE_TAG
+          else
+            echo "frontend-react service already exists, updating it"
+            # Update the frontend-react service with the latest image
+            docker service update --image vk2615/frontend-react:$IMAGE_TAG frontend-react
+          fi
