@@ -33,7 +33,7 @@ jobs:
     - name: Build and push Docker image for frontend-react (v3)
       run: |
         IMAGE_TAG=${{ github.run_id }}  # Set the tag to GitHub Run ID
-        # Build the Docker image for the frontend-react app
+        # Make sure the path is correct and Dockerfile exists in the 'frontend-react' directory
         docker build -t vk2615/frontend-react:$IMAGE_TAG -f ./frontend-react/Dockerfile ./frontend-react
         # Push the built image to DockerHub
         docker push vk2615/frontend-react:$IMAGE_TAG
