@@ -1,6 +1,6 @@
 name: Deploy v3 application
 
-on: 
+on:
   push:
     branches:
       - main
@@ -10,23 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout the code from the repository
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # 2. Login to Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
+      # 3. Build and Push Docker Image to Docker Hub
       - name: Build and Push Docker image
         uses: docker/build-push-action@v2
         with:
-          platforms: linux/amd64,linux/arm64
+          platform: linux/amd64,linux/arm64
           context: .
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+          load: false
+          no-cache: false
+          pull: false
 
+      # 4. SSH to Server and Deploy
       - name: SSH to Server and Deploy
         uses: appleboy/ssh-action@v0.1.3
         with:
@@ -34,11 +41,18 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
           script: |
+            # 4.1 Create Docker Swarm network if it doesn't exist
             docker network create --driver overlay terminal-network || true
+
+            # 4.2 Pull the Docker image from Docker Hub
             docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+
+            # 4.3 Create a Docker service in Swarm mode (2 replicas)
             docker service create \
               --name terminal_frontend \
               --replicas 2 \
               -p 8080:80 \
               ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+
+            # 4.4 Clean up unused Docker objects (volumes, containers, images)
             docker system prune -f --volumes
