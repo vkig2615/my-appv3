@@ -38,7 +38,7 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATEKEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             # Pull the updated v3 frontend image
             docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:v3-${{ github.run_id }}
