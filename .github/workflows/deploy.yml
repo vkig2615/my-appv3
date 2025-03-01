@@ -1,68 +1,44 @@
-name: Deploy React App 
+name: Deploy v3 application
 
-on:
+on: 
   push:
     branches:
-      - main  # Trigger workflow on push to main branch
+      - main
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-    
-    # ✅ Step 1: Checkout the repository
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    # ✅ Step 2: Login to DockerHub
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-    # ✅ Step 3: Set up Docker Buildx
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          platforms: linux/amd64,linux/arm64
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
 
-    # ✅ Step 4: Build & Push v4 Docker Image
-    - name: Build and push Docker image (v4)
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        platforms: linux/amd64,linux/arm64
-        tags: |
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:${{ github.run_id }}
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:latest
-
-    # ✅ Step 5: Deploy v4 to Docker Swarm via SSH
-    - name: Deploy v4 to Docker Swarm
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          IMAGE_TAG=${{ github.run_id }}
-          echo "Pulling new v4 image..."
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:$IMAGE_TAG
-          
-          # ✅ Ensure Docker network exists
-          docker network ls | grep my-app-network || docker network create my-app-network
-
-          # ✅ Update v3 to v4 using a Rolling Update
-          echo "Updating service to v4..."
-          docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:$IMAGE_TAG my-appv3
-
-    # ✅ Step 6: Rollback to v3 if v4 Deployment Fails
-    - name: Rollback to v3 on Failure
-      if: failure()
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          echo "Rolling back to v3..."
-          docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:latest my-appv3
+      - name: SSH to Server and Deploy
+        uses: appleboy/ssh-action@v0.1.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          script: |
+            docker network create --driver overlay terminal-network || true
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+            docker service create \
+              --name terminal_frontend \
+              --replicas 2 \
+              -p 8080:80 \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/terminal_frontend:${{ github.run.id }}
+            docker system prune -f --volumes
