@@ -33,19 +33,29 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:v3-${{ github.run_id }}
 
+      - name: Debug SSH Connection
+        uses: appleboy/ssh-action@v0.1.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "Testing SSH Connection"
+            ssh -vvv ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo 'SSH Connection Successful'"
+    
       - name: SSH to Server and Deploy v3
         uses: appleboy/ssh-action@v0.1.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
             # Pull the updated v3 frontend image
             docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:v3-${{ github.run_id }}
-
             # Remove the old service if it exists
             docker service rm frontend-v3 || true
-
             # Create a new service using docker service create and attach it to the existing terminal-network
             docker service create \
               --name frontend-v3 \
@@ -53,7 +63,5 @@ jobs:
               --network terminal-network \
               -p 8080:80 \
               ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:v3-${{ github.run_id }}
-
             # Optionally prune unused Docker volumes and networks
             docker system prune -f --volumes
-
