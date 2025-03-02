@@ -1,35 +1,40 @@
-name: Rollback to v3
+name: Rollback to Specific Version
 
 on:
-  workflow_dispatch:  # Allows manual rollback trigger
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Enter the version (GitHub Run ID) to rollback to"
+        required: true
+        default: "latest"
 
 jobs:
   rollback:
     runs-on: ubuntu-latest
     steps:
     
-    # ✅ Step 1: Connect to Remote Server and Rollback to v3
-    - name: Rollback to v3 on Docker Swarm
+    # ✅ Step 1: Connect to Remote Server and Rollback
+    - name: Rollback to Selected Version on Docker Swarm
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "🔄 Rolling back to v3..."
-          
-          # ✅ Ensure v3 image is available
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:latest
+          echo "🔄 Rolling back 'my-appv3' to version ${{ github.event.inputs.version }}..."
 
-          # ✅ Update the running service to v3
-          docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:latest my-app
+          # ✅ Ensure the selected version image is available
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:${{ github.event.inputs.version }}
+
+          # ✅ Update the running service to the selected version
+          docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:${{ github.event.inputs.version }} my-appv3
           
           # ✅ Wait for rollback to complete
           sleep 20
           
           # ✅ Verify the rollback
-          if docker service ps my-app --format "{{.CurrentState}}" | grep -q "Running"; then
-            echo "✅ Rollback to v3 successful!"
+          if docker service ps my-appv3 --format "{{.CurrentState}}" | grep -q "Running"; then
+            echo "✅ Rollback to version ${{ github.event.inputs.version }} successful!"
           else
             echo "❌ Rollback failed!"
             exit 1
