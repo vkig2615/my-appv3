@@ -26,12 +26,13 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          PREVIOUS_IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/my-app:df08d62"
+          # Define the rollback image with the correct tag
+          ROLLBACK_IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/my-app:13629419604"
 
-          echo "Rolling back to previous version: $PREVIOUS_IMAGE"
+          echo "Rolling back to previous version: $ROLLBACK_IMAGE"
 
           # Pull the previous version
-          docker pull $PREVIOUS_IMAGE
+          docker pull $ROLLBACK_IMAGE
 
           # Update Docker Swarm service to rollback to v5
-          docker service update --image $PREVIOUS_IMAGE my-app
+          docker service update --image $ROLLBACK_IMAGE my-app
