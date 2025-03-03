@@ -40,6 +40,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           IMAGE_TAG=${{ github.run_id }}
+<<<<<<< HEAD
 
           # Pull the new Docker image
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
@@ -48,6 +49,20 @@ jobs:
           docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
 
           # ✅ Deploy or update the my-app service
+=======
+          PREVIOUS_IMAGE=$(docker service inspect my-app --format '{{json .Spec.TaskTemplate.ContainerSpec.Image}}' | tr -d '"')
+
+          echo "Previous Image: $PREVIOUS_IMAGE"
+          echo "New Image: ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG"
+
+          # Pull the new Docker image
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
+
+          # Ensure the Docker network exists
+          docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
+
+          # Deploy or update the my-app service
+>>>>>>> 36e2e36 (roll-back-v4)
           if ! docker service ls | grep -q "my-app"; then
             echo "Creating the my-app service..."
             docker service create \
@@ -58,5 +73,12 @@ jobs:
               ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
           else
             echo "Updating the my-app service..."
+<<<<<<< HEAD
             docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app
+=======
+            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app || (
+              echo "Deployment failed! Rolling back to previous version: $PREVIOUS_IMAGE"
+              docker service update --image $PREVIOUS_IMAGE my-app
+            )
+>>>>>>> 36e2e36 (roll-back-v4)
           fi
