@@ -53,4 +53,8 @@ jobs:
               ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
           else
             docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app
+<<<<<<< HEAD
           fi
+=======
+          fi
+>>>>>>> edd965f9c750f0a19a3bb391dbc2611a2f7adb96
