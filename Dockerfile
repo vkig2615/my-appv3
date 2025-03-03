@@ -1,4 +1,3 @@
-# Use Node.js as the base image for building
 FROM node:18-alpine AS build
 
 # Set the working directory
@@ -6,17 +5,14 @@ WORKDIR /app
 
 # Copy package.json and install dependencies
 COPY package.json package-lock.json ./
-
-# Force a clean install
-RUN npm ci --legacy-peer-deps
+RUN npm install
 
 # Copy the rest of the application code
 COPY . .
 
-# Debug: Show environment variables
+# Set the React version dynamically
 ARG REACT_APP_VERSION=v1
-ENV REACT_APP_VERSION=$REACT_APP_VERSION
-RUN printenv | grep REACT_APP
+ENV REACT_APP_VERSION=${REACT_APP_VERSION}
 
 # Build the React application
 RUN npm run build
