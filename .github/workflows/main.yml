@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for React v3
+name: CI/CD Pipeline for React v4
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main  # Trigger workflow on push to the main branch
 
 jobs:
-  build-and-deploy-v3:
+  build-and-deploy-v4:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,17 +22,17 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and push Docker image for my-appv3
+    - name: Build and push Docker image for my-appv4
       uses: docker/build-push-action@v6
       with:
         platforms: linux/amd64,linux/arm64  # Multi-platform build
         context: .  # Use "." if Dockerfile is in the root directory
         push: true
         tags: |
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:${{ github.run_id }}
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:latest
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:${{ github.run_id }}
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:latest
 
-    - name: SSH into server and deploy my-appv3 to Docker Swarm
+    - name: SSH into server and update service to v4
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -40,19 +40,15 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           IMAGE_TAG=${{ github.run_id }}
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:$IMAGE_TAG
           
           # ✅ Ensure the Docker network exists
           docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
-
-          # ✅ Deploy or update the my-appv3 service
-          if ! docker service ls | grep -q "my-appv3"; then
-            docker service create \
-              --name my-appv3 \
-              --replicas 2 \
-              --publish 8080:80 \
-              --network my_network \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
-          else
-            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG my-appv3
-          fi
+          
+          # ✅ Immediate service update to v4
+          docker service update \
+            --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv4:$IMAGE_TAG \
+            my-appv3
+          
+          # ✅ Verify the update was successful
+          docker service ps my-appv3
