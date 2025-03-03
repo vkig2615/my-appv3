@@ -29,9 +29,9 @@ jobs:
         context: .  # Use "." if Dockerfile is in the root directory
         push: true
         tags: |
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:${{ github.run_id }}
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:latest
-    - name: SSH into server and deploy my-appv3 to Docker Swarm
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:${{ github.run_id }}
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest
+    - name: SSH into server and deploy my-app to Docker Swarm
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -39,7 +39,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           IMAGE_TAG=${{ github.run_id }}
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
           
           # ✅ Ensure the Docker network exists
           docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
