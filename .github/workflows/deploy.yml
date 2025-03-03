@@ -1,4 +1,4 @@
-clname: CI/CD Pipeline for React v3
+name: CI/CD Pipeline for React v3
 
 on:
   push:
