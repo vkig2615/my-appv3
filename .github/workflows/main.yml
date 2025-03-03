@@ -41,15 +41,17 @@ jobs:
         script: |
           IMAGE_TAG=${{ github.run_id }}
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
-          docker stop my-appv3 || true
-          docker rm my-appv3 || true
           
+          # ✅ Ensure the Docker network exists
+          docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
+
+          # ✅ Deploy or update the my-appv3 service
           if ! docker service ls | grep -q "my-appv3"; then
             docker service create \
               --name my-appv3 \
               --replicas 2 \
               --publish 8080:80 \
-              --network my-app-network \
+              --network my_network \
               ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
           else
             docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG my-appv3
