@@ -50,7 +50,7 @@ jobs:
               --replicas 2 \
               --publish 8080:80 \
               --network my_network \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/my-appv3:$IMAGE_TAG
+              ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
           else
-            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-appv3
+            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app
           fi
