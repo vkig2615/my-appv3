@@ -1,18 +1,22 @@
+# Use Node.js for building
 FROM node:18-alpine AS build
 
 # Set the working directory
 WORKDIR /app
 
-# Copy package.json and install dependencies
+# Copy package files and install dependencies
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the application code
-COPY . .
+COPY . . 
 
-# Set the React version dynamically
+# Set React version dynamically
 ARG REACT_APP_VERSION=v1
 ENV REACT_APP_VERSION=${REACT_APP_VERSION}
+
+# Increase memory limit for React builds
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # Build the React application
 RUN npm run build
