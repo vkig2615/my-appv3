@@ -7,6 +7,5 @@ function App() {
     </div>
   )
 } 
-cl
 export default App;
 
