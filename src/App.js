@@ -6,7 +6,7 @@ function App() {
       <h1>Hello World - Version v5</h1>
     </div>
   )
-}
+} 
 
 export default App;
 
