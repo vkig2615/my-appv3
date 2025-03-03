@@ -1,0 +1,75 @@
+name: CI/CD Pipeline for React v3
+
+on:
+  push:
+    branches:
+      - main  # Trigger workflow on push to the main branch
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (v5 or v6)'
+        required: true
+        default: 'v6'  # Default version is v6
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Build and push Docker image for my-app
+      if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.version == 'v6' }}  # Only build for v6 if manual trigger
+      uses: docker/build-push-action@v2
+      with:
+        platforms: linux/amd64,linux/arm64  # Multi-platform build
+        context: .  # Use "." if Dockerfile is in the root directory
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:${{ github.run_id }}  # Tag with run ID
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest  # Tag with latest for easy access
+
+    - name: Deploy my-app to Docker Swarm
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          VERSION=${{ github.event.inputs.version }}  # Get version input from manual trigger
+          IMAGE_TAG=${{ github.run_id }}  # Default to the run ID tag
+
+          # If the version is 'v5', use the 'v5' tag for Docker image
+          if [ "$VERSION" == "v5" ]; then
+            IMAGE_TAG="v5"  # Rollback to v5 (static tag)
+          fi
+
+          # Pull the selected Docker image (v5 or v6)
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
+
+          # ✅ Ensure the Docker network exists
+          docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
+
+          # ✅ Deploy or update the my-app service
+          if ! docker service ls | grep -q "my-app"; then
+            echo "Creating the my-app service..."
+            docker service create \
+              --name my-app \
+              --replicas 2 \
+              --publish 8080:80 \
+              --network my_network \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
+          else
+            echo "Updating the my-app service..."
+            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app
+          fi
