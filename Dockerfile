@@ -6,14 +6,17 @@ WORKDIR /app
 
 # Copy package.json and install dependencies
 COPY package.json package-lock.json ./
-RUN npm install
+
+# Force a clean install
+RUN npm ci --legacy-peer-deps
 
 # Copy the rest of the application code
 COPY . .
 
-# Set the React version dynamically
+# Debug: Show environment variables
 ARG REACT_APP_VERSION=v1
-ENV REACT_APP_VERSION=${REACT_APP_VERSION}
+ENV REACT_APP_VERSION=$REACT_APP_VERSION
+RUN printenv | grep REACT_APP
 
 # Build the React application
 RUN npm run build
@@ -29,4 +32,3 @@ EXPOSE 80
 
 # Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
-
