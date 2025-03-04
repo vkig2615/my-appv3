@@ -41,10 +41,10 @@ jobs:
         script: |
           IMAGE_TAG=${{ github.run_id }}
           APP_NAME="my-app"
-          VERSION_FILE="/home/${{ secrets.SSH_USER }}/version.txt"
+          CSV_FILE="/home/${{ secrets.SSH_USER }}/versions.csv"
 
-          # ✅ Ensure the home directory exists and has correct permissions
-          mkdir -p $(dirname $VERSION_FILE)
+          # Ensure the directory exists
+          mkdir -p $(dirname $CSV_FILE)
 
           # Pull the new Docker image
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG
@@ -66,15 +66,24 @@ jobs:
             docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG $APP_NAME
           fi  
 
-          # ✅ Create and update version.txt
-          echo "Application: $APP_NAME" > $VERSION_FILE
-          echo "Image Version: $IMAGE_TAG" >> $VERSION_FILE
-          echo "version.txt updated with the latest deployment info."
+          # ✅ Check if the versions.csv file exists
+          if [ -f "$CSV_FILE" ]; then
+            LAST_ROW=$(tail -n 1 $CSV_FILE)
+            LAST_ID=$(echo $LAST_ROW | cut -d',' -f1)
+            NEW_ID=$((LAST_ID + 1))
+          else
+            echo "ID,Application,Image_Version" > $CSV_FILE
+            NEW_ID=1
+          fi
 
-    - name: Retrieve version.txt from server
+          # ✅ Append the new deployment entry
+          echo "$NEW_ID,$APP_NAME,$IMAGE_TAG" >> $CSV_FILE
+          echo "versions.csv updated with the latest deployment info."
+
+    - name: Retrieve versions.csv from server
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: cat /home/${{ secrets.SSH_USER }}/version.txt
+        script: cat /home/${{ secrets.SSH_USER }}/versions.csv
