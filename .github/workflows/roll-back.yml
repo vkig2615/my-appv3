@@ -1,0 +1,29 @@
+name: Rollback My-App 
+
+on:
+  workflow_dispatch:  # Allows manual execution
+    inputs:
+      rollback_version:
+        description: "GitHub Run ID (Image Tag) to Rollback"
+        required: true
+        default: "13629419619"  # Hardcoded Run ID for rollback
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+    - name: SSH into server and rollback my-app
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          IMAGE_TAG=${{ github.event.inputs.rollback_version }}
+          echo "Rolling back to version: $IMAGE_TAG"
+          
+          # Pull the previous version image
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
+          
+          # Update the service with the rollback version
+          docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app

@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main  # Trigger workflow on push to the main branch
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (v5 or v6)'
+        required: true
+        default: 'v6'  # Default version is v6
 
 jobs:
-  build-and-deploy-v3:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,26 +29,37 @@ jobs:
       uses: docker/setup-buildx-action@v1
 
     - name: Build and push Docker image for my-app
+      if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.version == 'v6' }}  # Only build for v6 if manual trigger
       uses: docker/build-push-action@v2
       with:
         platforms: linux/amd64,linux/arm64  # Multi-platform build
         context: .  # Use "." if Dockerfile is in the root directory
         push: true
         tags: |
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:${{ github.run_id }}
-          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest
-    - name: SSH into server and deploy my-app to Docker Swarm
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:${{ github.run_id }}  # Tag with run ID
+          ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest  # Tag with latest for easy access
+
+    - name: Deploy my-app to Docker Swarm
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          IMAGE_TAG=${{ github.run_id }}
-          # Pull the new Docker image
+          VERSION=${{ github.event.inputs.version }}  # Get version input from manual trigger
+          IMAGE_TAG=${{ github.run_id }}  # Default to the run ID tag
+
+          # If the version is 'v5', use the 'v5' tag for Docker image
+          if [ "$VERSION" == "v5" ]; then
+            IMAGE_TAG="v5"  # Rollback to v5 (static tag)
+          fi
+
+          # Pull the selected Docker image (v5 or v6)
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
+
           # ✅ Ensure the Docker network exists
           docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
+
           # ✅ Deploy or update the my-app service
           if ! docker service ls | grep -q "my-app"; then
             echo "Creating the my-app service..."
