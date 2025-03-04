@@ -31,6 +31,7 @@ jobs:
         tags: |
           ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:${{ github.run_id }}
           ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest
+
     - name: SSH into server and deploy my-app to Docker Swarm
       uses: appleboy/ssh-action@v0.1.7
       with:
@@ -39,20 +40,38 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           IMAGE_TAG=${{ github.run_id }}
+          APP_NAME="my-app"
+          VERSION_FILE="/home/${{ secrets.SSH_USER }}/version.txt"
+
           # Pull the new Docker image
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
-          # ✅ Ensure the Docker network exists
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG
+          
+          # Ensure the Docker network exists
           docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
-          # ✅ Deploy or update the my-app service
-          if ! docker service ls | grep -q "my-app"; then
-            echo "Creating the my-app service..."
+
+          # Deploy or update the my-app service
+          if ! docker service ls | grep -q "$APP_NAME"; then
+            echo "Creating the $APP_NAME service..."
             docker service create \
-              --name my-app \
+              --name $APP_NAME \
               --replicas 2 \
               --publish 8080:80 \
               --network my_network \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG
+              ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG
           else
-            echo "Updating the my-app service..."
-            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:$IMAGE_TAG my-app
-          fi
+            echo "Updating the $APP_NAME service..."
+            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG $APP_NAME
+          fi  
+
+          # ✅ Store the application name and image version in version.txt
+          echo "Application: $APP_NAME" > $VERSION_FILE
+          echo "Image Version: $IMAGE_TAG" >> $VERSION_FILE
+          echo "version.txt updated with the latest deployment info."
+
+    - name: Retrieve version.txt from server
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: cat /home/${{ secrets.SSH_USER }}/version.txt
