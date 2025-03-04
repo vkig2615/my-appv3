@@ -69,15 +69,15 @@ jobs:
           # ✅ Check if the versions.csv file exists
           if [ -f "$CSV_FILE" ]; then
             LAST_ROW=$(tail -n 1 $CSV_FILE)
-            LAST_ID=$(echo $LAST_ROW | cut -d',' -f1)
-            NEW_ID=$((LAST_ID + 1))
+            LAST_SERIAL=$(echo $LAST_ROW | cut -d',' -f1)
+            NEW_SERIAL=$((LAST_SERIAL + 1))
           else
-            echo "ID,Application,Image_Version" > $CSV_FILE
-            NEW_ID=1
+            echo "Serial Number,Application,Image_Version" > $CSV_FILE
+            NEW_SERIAL=1
           fi
 
-          # ✅ Append the new deployment entry
-          echo "$NEW_ID,$APP_NAME,$IMAGE_TAG" >> $CSV_FILE
+          # ✅ Append the new deployment entry with Serial Number
+          echo "$NEW_SERIAL,$APP_NAME,$IMAGE_TAG" >> $CSV_FILE
           echo "versions.csv updated with the latest deployment info."
 
     - name: Retrieve versions.csv from server
