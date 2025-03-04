@@ -25,7 +25,7 @@ jobs:
     - name: Build and push Docker image for my-app
       uses: docker/build-push-action@v2
       with:
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64,linux/arm64  # Multi-platform build
         context: .
         push: true
         tags: |
@@ -46,7 +46,27 @@ jobs:
           # Ensure the directory exists
           mkdir -p $(dirname "$CSV_FILE")
 
-          # Check if versions.csv exists and get the last serial number
+          # Pull the new Docker image
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG
+          
+          # Ensure the Docker network exists
+          docker network ls | grep -q "my_network" || docker network create --driver overlay my_network
+
+          # Deploy or update the my-app service
+          if ! docker service ls | grep -q "$APP_NAME"; then
+            echo "Creating the $APP_NAME service..."
+            docker service create \
+              --name $APP_NAME \
+              --replicas 2 \
+              --publish 8080:80 \
+              --network my_network \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG
+          else
+            echo "Updating the $APP_NAME service..."
+            docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG $APP_NAME
+          fi  
+
+          # ✅ Check if versions.csv exists and get the last serial number
           if [ -f "$CSV_FILE" ]; then
             LAST_ROW=$(tail -n 1 "$CSV_FILE")
             LAST_SERIAL=$(echo "$LAST_ROW" | cut -d',' -f1)
@@ -60,14 +80,10 @@ jobs:
             NEW_SERIAL=1
           fi
 
-          # ✅ Append the current deployment entry
+          # ✅ Append only the current deployment entry
           echo "$NEW_SERIAL,$APP_NAME,$IMAGE_TAG" >> "$CSV_FILE"
 
-          # ✅ Predict and store the next deployment entry (placeholder)
-          NEXT_SERIAL=$((NEW_SERIAL + 1))
-          echo "$NEXT_SERIAL,$APP_NAME,NEXT_DEPLOYMENT_RUN_ID" >> "$CSV_FILE"
-
-          echo "versions.csv updated with current and next deployment info."
+          echo "versions.csv updated with the latest deployment info."
 
     - name: Retrieve versions.csv from server
       uses: appleboy/ssh-action@v0.1.7
