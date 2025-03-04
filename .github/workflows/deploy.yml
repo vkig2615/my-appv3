@@ -43,6 +43,9 @@ jobs:
           APP_NAME="my-app"
           VERSION_FILE="/home/${{ secrets.SSH_USER }}/version.txt"
 
+          # ✅ Ensure the home directory exists and has correct permissions
+          mkdir -p $(dirname $VERSION_FILE)
+
           # Pull the new Docker image
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG
           
@@ -63,7 +66,7 @@ jobs:
             docker service update --image ${{ secrets.DOCKER_HUB_USERNAME }}/$APP_NAME:$IMAGE_TAG $APP_NAME
           fi  
 
-          # ✅ Store the application name and image version in version.txt
+          # ✅ Create and update version.txt
           echo "Application: $APP_NAME" > $VERSION_FILE
           echo "Image Version: $IMAGE_TAG" >> $VERSION_FILE
           echo "version.txt updated with the latest deployment info."
