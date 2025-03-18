@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: myapp
-          image: vkig2615/myapp:latest  # Replace with your actual image
+          image: vk2615/myapp:latest  # Replace with your actual image
           ports:
             - containerPort: 80
           resources:
