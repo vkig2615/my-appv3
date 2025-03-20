@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name:  my-app
-  namespace: react
+  namespace: my-app
 spec:
   project: default
   source:
@@ -11,7 +11,7 @@ spec:
     path: k8s
   destination:
     server: https://kubernetes.default.svc
-    namespace: react
+    namespace: my-app
   syncPolicy:
     automated:
       selfHeal: true
